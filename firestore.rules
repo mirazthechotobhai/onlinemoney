@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 120 &&
+             (!('username' in data) || (data.username is string && data.username.size() <= 50)) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() <= 500)) &&
+             (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 2000)) &&
+             (!('joinedDate' in data) || (data.joinedDate is string && data.joinedDate.size() <= 50)) &&
+             (!('level' in data) || data.level is number) &&
+             (!('xp' in data) || data.xp is number) &&
+             (!('nextLevelXp' in data) || data.nextLevelXp is number) &&
+             (!('balance' in data) || data.balance is number) &&
+             (!('gems' in data) || data.gems is number) &&
+             (!('streakDays' in data) || data.streakDays is number) &&
+             (!('lastClaimedDate' in data) || data.lastClaimedDate == null || data.lastClaimedDate is string) &&
+             (!('language' in data) || (data.language in ['bn', 'en'])) &&
+             (!('soundEnabled' in data) || data.soundEnabled is bool) &&
+             (!('notificationsEnabled' in data) || data.notificationsEnabled is bool) &&
+             (!('theme' in data) || (data.theme in ['light', 'dark', 'system'])) &&
+             (!('promotedUrl' in data) || data.promotedUrl is string && data.promotedUrl.size() <= 2000) &&
+             (!('promotedUrlTitle' in data) || data.promotedUrlTitle is string && data.promotedUrlTitle.size() <= 100) &&
+             (!('promotedUrlActive' in data) || data.promotedUrlActive is bool);
+    }
+
+    function isValidPromotedLink(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.url is string && data.url.size() <= 2000 &&
+             data.title is string && data.title.size() <= 100 &&
+             data.active is bool &&
+             (!('coinsAvailable' in data) || data.coinsAvailable is number) &&
+             (!('visitReward' in data) || data.visitReward is number) &&
+             (!('durationSeconds' in data) || data.durationSeconds is number);
+    }
+
+    function isValidTask(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 120 &&
+             (!('titleBn' in data) || (data.titleBn is string && data.titleBn.size() <= 150)) &&
+             data.reward is number &&
+             data.rewardType in ['coins', 'gems'] &&
+             data.completed is bool;
+    }
+
+    function isValidActivity(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.title is string && data.title.size() <= 150 &&
+             data.amount is number &&
+             data.type in ['coins', 'gems'];
+    }
+
+    // User Profile
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow delete: if isOwner(userId);
+
+      // Subcollection: Tasks
+      match /tasks/{taskId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && isValidTask(request.resource.data);
+      }
+
+      // Subcollection: Activities
+      match /activities/{activityId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidActivity(request.resource.data);
+        allow update, delete: if isOwner(userId);
+      }
+    }
+
+    // Community Promoted Links for Traffic Exchange
+    match /promoted_links/{linkId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId && isValidPromotedLink(request.resource.data);
+      allow update: if isSignedIn() && (
+        (request.auth.uid == resource.data.userId && isValidPromotedLink(request.resource.data)) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coinsAvailable', 'active', 'updatedAt']))
+      );
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+
+    // Test connection document
+    match /test/connection {
+      allow get: if true;
+    }
+  }
+}

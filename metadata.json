@@ -1,0 +1,6 @@
+{
+  "name": "Profile & Rewards",
+  "description": "Interactive user profile page featuring secure Firebase email/password Signup & Login, Profile Settings logout option, ImgBB avatar customization, balance tracking, and 15-second web traffic exchange.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

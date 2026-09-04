@@ -31,12 +31,22 @@ import {
   RefreshCw,
   ShieldCheck,
   User as UserIcon,
-  Lock
+  Lock,
+  Globe,
+  AlertTriangle,
+  Mail
 } from 'lucide-react';
 import { remoteSync } from '../services/remoteSync';
 import { DirectionKey, RemoteSession } from '../types';
 import { auth, googleProvider } from '../services/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+
+export interface SimpleAuthUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL?: string | null;
+}
 import {
   createRemoteSession,
   getPermanentCodeForUser,
@@ -70,7 +80,13 @@ export const RemoteControl: React.FC<RemoteControlProps> = ({ isEmbedded = false
   const [lastPingTime, setLastPingTime] = useState<number>(0);
 
   // Firebase Google Auth & Pairing Code State
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | SimpleAuthUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('remote_custom_user');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [pairingCode, setPairingCode] = useState<string>(() => {
     return localStorage.getItem('remote_pairing_code') || '';
@@ -79,6 +95,10 @@ export const RemoteControl: React.FC<RemoteControlProps> = ({ isEmbedded = false
   const [firebaseSyncState, setFirebaseSyncState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [codeCopied, setCodeCopied] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
+  const [domainCopied, setDomainCopied] = useState<boolean>(false);
+  const [showDirectEmailInput, setShowDirectEmailInput] = useState<boolean>(false);
+  const [directEmail, setDirectEmail] = useState<string>('');
 
   // Keyboard drawer open state
   const [isKeyboardOpen, setIsKeyboardOpen] = useState<boolean>(true);
@@ -96,8 +116,10 @@ export const RemoteControl: React.FC<RemoteControlProps> = ({ isEmbedded = false
   // Monitor Firebase Auth state
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
       if (user) {
+        setCurrentUser(user);
+        localStorage.removeItem('remote_custom_user');
+        setUnauthorizedDomain(null);
         // Deterministic permanent code for this Gmail account
         const permCode = getPermanentCodeForUser(user.email, user.uid);
         setPairingCode(permCode);
@@ -127,6 +149,36 @@ export const RemoteControl: React.FC<RemoteControlProps> = ({ isEmbedded = false
 
         remoteSync.setActiveFirebaseCode(permCode);
       } else {
+        // If not a google auth user, check if we have a direct custom user stored in localStorage
+        const savedCustom = localStorage.getItem('remote_custom_user');
+        if (savedCustom) {
+          try {
+            const parsed: SimpleAuthUser = JSON.parse(savedCustom);
+            setCurrentUser(parsed);
+            const permCode = getPermanentCodeForUser(parsed.email, parsed.uid);
+            setPairingCode(permCode);
+            remoteSync.setActiveFirebaseCode(permCode);
+            createRemoteSession(permCode, {
+              uid: parsed.uid,
+              email: parsed.email,
+              displayName: parsed.displayName,
+              photoURL: parsed.photoURL,
+            }).then((res) => {
+              if (res.success) {
+                setFirebaseSyncState('saved');
+                if (res.isAlreadyActive) {
+                  setSessionStatus('active');
+                  setIsConnected(true);
+                } else {
+                  setSessionStatus('waiting');
+                }
+              }
+            });
+            return;
+          } catch {}
+        }
+
+        setCurrentUser(null);
         setSessionStatus('none');
         setFirebaseSyncState('idle');
         remoteSync.setActiveFirebaseCode(null);
@@ -157,12 +209,14 @@ export const RemoteControl: React.FC<RemoteControlProps> = ({ isEmbedded = false
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
     setAuthError(null);
+    setUnauthorizedDomain(null);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       const permCode = getPermanentCodeForUser(user.email, user.uid);
       setPairingCode(permCode);
       localStorage.setItem('remote_pairing_code', permCode);
+      localStorage.removeItem('remote_custom_user');
 
       setFirebaseSyncState('saving');
       const res = await createRemoteSession(permCode, {
@@ -190,10 +244,87 @@ export const RemoteControl: React.FC<RemoteControlProps> = ({ isEmbedded = false
       triggerFeedback('Google Signed In');
     } catch (err: any) {
       console.error('Google Sign-in failed:', err);
-      setAuthError(err?.message || 'Sign in failed. Please try again.');
+      const isUnauthorized =
+        err?.code === 'auth/unauthorized-domain' ||
+        err?.message?.includes('unauthorized-domain') ||
+        err?.message?.includes('authorized domain');
+
+      if (isUnauthorized) {
+        const currentHost = window.location.hostname || 'your-domain.vercel.app';
+        setUnauthorizedDomain(currentHost);
+        setShowDirectEmailInput(true);
+        setAuthError(`Firebase Unauthorized Domain: "${currentHost}" ডোমেনটি Firebase Console এ অনুমোদিত নয়। নিচের নির্দেশিকা দেখুন অথবা সরাসরি জিমেইল লিখে কানেক্ট করুন।`);
+      } else {
+        setAuthError(err?.message || 'Sign in failed. Please try again.');
+      }
     } finally {
       setIsSigningIn(false);
     }
+  };
+
+  const handleDirectEmailLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanEmail = directEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setAuthError('দয়া করে একটি সঠিক জিমেইল বা ইমেইল অ্যাড্রেস লিখুন (যেমন: name@gmail.com)');
+      return;
+    }
+
+    setIsSigningIn(true);
+    setAuthError(null);
+    try {
+      const customUid = `user_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const permCode = getPermanentCodeForUser(cleanEmail, customUid);
+      const customUser: SimpleAuthUser = {
+        uid: customUid,
+        email: cleanEmail,
+        displayName: cleanEmail.split('@')[0],
+        photoURL: null,
+      };
+
+      localStorage.setItem('remote_custom_user', JSON.stringify(customUser));
+      localStorage.setItem('remote_pairing_code', permCode);
+      setCurrentUser(customUser);
+      setPairingCode(permCode);
+
+      setFirebaseSyncState('saving');
+      const res = await createRemoteSession(permCode, {
+        uid: customUser.uid,
+        email: customUser.email,
+        displayName: customUser.displayName,
+        photoURL: customUser.photoURL,
+      });
+
+      if (res.success) {
+        setFirebaseSyncState('saved');
+        setAuthError(null);
+        if (res.isAlreadyActive) {
+          setSessionStatus('active');
+          setIsConnected(true);
+        } else {
+          setSessionStatus('waiting');
+        }
+      } else {
+        setFirebaseSyncState('error');
+        setAuthError(res.error || 'Failed to save permanent code in Firebase');
+      }
+
+      remoteSync.setActiveFirebaseCode(permCode);
+      triggerFeedback('Connected via Gmail');
+    } catch (err: any) {
+      console.error('Direct email login error:', err);
+      setAuthError(err?.message || 'Failed to connect. Check internet connection.');
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleCopyDomain = () => {
+    if (!unauthorizedDomain) return;
+    navigator.clipboard.writeText(unauthorizedDomain).then(() => {
+      setDomainCopied(true);
+      setTimeout(() => setDomainCopied(false), 2000);
+    });
   };
 
   const handleSignOut = async () => {
@@ -209,9 +340,11 @@ export const RemoteControl: React.FC<RemoteControlProps> = ({ isEmbedded = false
         // Set status: 'logged_out' in Firestore so any remote and cross-device screens log out immediately
         await deactivateSession(pairingCode);
       }
-      await signOut(auth);
+      await signOut(auth).catch(() => {});
+      setCurrentUser(null);
       setPairingCode('');
       localStorage.removeItem('remote_pairing_code');
+      localStorage.removeItem('remote_custom_user');
       remoteSync.setActiveFirebaseCode(null);
       setSessionStatus('none');
       setFirebaseSyncState('idle');
@@ -537,26 +670,120 @@ export const RemoteControl: React.FC<RemoteControlProps> = ({ isEmbedded = false
           {!currentUser ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-400 font-medium">Google Sign-in Required</span>
+                <span className="text-zinc-400 font-medium">Google / Gmail Sign-in</span>
                 <span className="text-[10px] font-mono text-zinc-500">Firebase Cloud</span>
               </div>
               <p className="text-[11px] text-zinc-400 leading-relaxed">
-                Log in with your Gmail to generate a 6-digit sync code and pair this remote to the TV.
+                Log in with your Gmail to generate your permanent 6-digit sync code and pair with the TV.
               </p>
-              {authError && (
+
+              {/* Unauthorized Domain Diagnostic Box */}
+              {unauthorizedDomain && (
+                <div className="p-2.5 rounded-lg bg-amber-950/50 border border-amber-800/80 text-[11px] text-amber-200 flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-amber-400 font-semibold text-xs">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Firebase: Unauthorized Domain</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-300 leading-relaxed">
+                    আপনার এই ডোমেনটি Firebase Console-এ অনুমোদিত নয়:
+                  </p>
+                  <div className="flex items-center justify-between bg-black/70 border border-amber-800/80 rounded px-2.5 py-1.5 font-mono text-[11px] text-amber-300">
+                    <span className="truncate font-bold">{unauthorizedDomain}</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyDomain}
+                      className="ml-2 text-[10px] px-2 py-0.5 bg-amber-700 hover:bg-amber-600 rounded text-white font-sans flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
+                    >
+                      {domainCopied ? <Check className="w-3 h-3 text-emerald-300" /> : <Copy className="w-3 h-3" />}
+                      <span>{domainCopied ? 'Copied!' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <div className="text-[10px] text-zinc-300 leading-normal flex flex-col gap-1.5 pt-1 border-t border-amber-900/40">
+                    <p>
+                      <strong>১-ক্লিকে সমাধান:</strong> Firebase Console-এ গিয়ে <strong>Authorized domains</strong>-এ এই ডোমেনটি <strong>Add domain</strong> করুন।
+                    </p>
+                    <a
+                      href="https://console.firebase.google.com/project/oh-no-tv/authentication/settings"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-2 bg-amber-600 hover:bg-amber-500 text-white rounded font-medium text-xs transition-colors shadow-sm"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>Firebase Settings খুলুন (Authorized Domains) ↗</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {authError && !unauthorizedDomain && (
                 <div className="text-[10px] text-red-400 bg-red-950/40 p-1.5 rounded border border-red-900/50">
                   {authError}
                 </div>
               )}
+
+              {/* Primary Google One-Click Sign-In Button with Official Google G Logo */}
               <button
                 id="remote-google-signin-button"
                 onClick={handleGoogleSignIn}
                 disabled={isSigningIn}
-                className="w-full py-2 px-3 rounded-lg bg-white hover:bg-zinc-100 text-zinc-900 font-semibold text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm cursor-pointer disabled:opacity-50"
+                className="w-full py-2.5 px-3 rounded-lg bg-white hover:bg-zinc-100 text-zinc-900 font-semibold text-xs flex items-center justify-center gap-2.5 transition-all active:scale-95 shadow-md cursor-pointer disabled:opacity-50"
               >
-                <LogIn className="w-3.5 h-3.5 text-blue-600" />
-                <span>{isSigningIn ? 'Signing in with Google...' : 'Sign in with Google (Gmail)'}</span>
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </svg>
+                <span>{isSigningIn ? 'Signing in...' : 'Sign in with Google'}</span>
               </button>
+
+              {/* Seamless Public Connect by entering Gmail directly */}
+              <div className="pt-2 border-t border-zinc-800/80 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                  <span className="flex items-center gap-1 font-medium text-zinc-300">
+                    <Mail className="w-3.5 h-3.5 text-blue-400" />
+                    <span>অথবা সরাসরি জিমেইল দিয়ে কানেক্ট করুন</span>
+                  </span>
+                  <span className="text-[9px] text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-1.5 py-0.2 rounded">
+                    100% কাজ করবে
+                  </span>
+                </div>
+                <p className="text-[10px] text-zinc-500 leading-tight">
+                  যেকোনো ডিভাইস বা মোবাইলে পপ-আপ ছাড়াই আপনার স্থায়ী কোড দিয়ে কানেক্ট হবে:
+                </p>
+
+                <form onSubmit={handleDirectEmailLogin} className="flex flex-col gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="email"
+                      value={directEmail}
+                      onChange={(e) => setDirectEmail(e.target.value)}
+                      placeholder="আপনার জিমেইল লিখুন (যেমন: name@gmail.com)"
+                      className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSigningIn || !directEmail.trim()}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-lg text-xs font-semibold cursor-pointer shrink-0 transition-all active:scale-95 shadow-sm"
+                    >
+                      Connect
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-2">

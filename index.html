@@ -3,43 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>
-      (function() {
-        try {
-          var currentFetch = window.fetch ? window.fetch.bind(window) : null;
-          var proto = Object.getPrototypeOf(window);
-          if (proto) {
-            try {
-              Object.defineProperty(proto, 'fetch', {
-                get: function() { return currentFetch; },
-                set: function(v) { currentFetch = v; },
-                configurable: true,
-                enumerable: true
-              });
-            } catch (e) {}
-          }
-          try {
-            Object.defineProperty(window, 'fetch', {
-              get: function() { return currentFetch; },
-              set: function(v) { currentFetch = v; },
-              configurable: true,
-              enumerable: true
-            });
-          } catch (e) {}
-        } catch (err) {}
-      })();
-    </script>
-    <title>Profile & Rewards</title>
-    <meta name="description" content="Interactive user profile page featuring avatar customization, balance tracking, earning rewards system, and settings." />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <meta property="og:title" content="Profile & Rewards" />
-    <meta property="og:description" content="Interactive user profile page featuring avatar customization, balance tracking, earning rewards system, and settings." />
+    <title>Web Remote Controller</title>
+    <meta name="description" content="A single-page website with a top-right button that opens an interactive remote control in a new tab, featuring a touchpad, D-pad navigation, and a full alphabet virtual keyboard with live synchronization." />
+    <meta property="og:title" content="Web Remote Controller" />
+    <meta property="og:description" content="A single-page website with a top-right button that opens an interactive remote control in a new tab, featuring a touchpad, D-pad navigation, and a full alphabet virtual keyboard with live synchronization." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
   </head>
-  <body>
+  <body class="bg-black text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

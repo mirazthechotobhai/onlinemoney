@@ -1,6 +1,6 @@
 {
-  "name": "Profile & Rewards",
-  "description": "Interactive user profile page featuring secure Firebase email/password Signup & Login, Profile Settings logout option, ImgBB avatar customization, balance tracking, and 15-second web traffic exchange.",
+  "name": "Web Remote Controller",
+  "description": "A single-page website with a top-right button that opens an interactive remote control in a new tab, featuring a touchpad, D-pad navigation, and a full alphabet virtual keyboard with live synchronization.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

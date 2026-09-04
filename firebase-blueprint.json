@@ -1,269 +1,54 @@
 {
   "entities": {
-    "UserProfile": {
-      "title": "UserProfile",
-      "description": "User profile data, balance, rewards, and preferences",
+    "RemoteSession": {
+      "title": "Remote Session",
+      "description": "Pairing session linking a remote controller to the main display screen",
       "type": "object",
       "properties": {
-        "userId": {
+        "code": {
           "type": "string",
-          "description": "Firebase Auth UID"
-        },
-        "name": {
-          "type": "string",
-          "maxLength": 100,
-          "description": "Full display name of user"
-        },
-        "username": {
-          "type": "string",
-          "maxLength": 50,
-          "description": "Unique username handle"
-        },
-        "email": {
-          "type": "string",
-          "maxLength": 120,
-          "description": "Email address of user"
-        },
-        "bio": {
-          "type": "string",
-          "maxLength": 500,
-          "description": "User bio or tagline"
-        },
-        "avatarUrl": {
-          "type": "string",
-          "maxLength": 2000,
-          "description": "URL or base64 profile picture"
-        },
-        "joinedDate": {
-          "type": "string",
-          "description": "Joined date string"
-        },
-        "level": {
-          "type": "number",
-          "description": "Current player level"
-        },
-        "xp": {
-          "type": "number",
-          "description": "Current XP"
-        },
-        "nextLevelXp": {
-          "type": "number",
-          "description": "XP required for next level"
-        },
-        "balance": {
-          "type": "number",
-          "description": "Coins balance"
-        },
-        "gems": {
-          "type": "number",
-          "description": "Gems balance"
-        },
-        "streakDays": {
-          "type": "number",
-          "description": "Daily login streak count"
-        },
-        "lastClaimedDate": {
-          "type": "string",
-          "description": "Last claimed date string (YYYY-MM-DD)"
-        },
-        "language": {
-          "type": "string",
-          "enum": ["bn", "en"],
-          "description": "Selected interface language"
-        },
-        "soundEnabled": {
-          "type": "boolean",
-          "description": "Sound effects preference"
-        },
-        "notificationsEnabled": {
-          "type": "boolean",
-          "description": "Notifications preference"
-        },
-        "theme": {
-          "type": "string",
-          "enum": ["light", "dark", "system"],
-          "description": "Theme preference"
-        },
-        "promotedUrl": {
-          "type": "string",
-          "maxLength": 2000,
-          "description": "Custom URL/website set by user for traffic exchange"
-        },
-        "promotedUrlTitle": {
-          "type": "string",
-          "maxLength": 100,
-          "description": "Title/label for the custom promoted link"
-        },
-        "promotedUrlActive": {
-          "type": "boolean",
-          "description": "Whether the promoted URL is active for visits"
-        }
-      },
-      "required": ["userId", "name", "email", "balance", "gems", "level"]
-    },
-    "PromotedLink": {
-      "title": "PromotedLink",
-      "description": "Community links shared by users where viewers earn 1 coin after 15s visit and owner pays 1 coin",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique link ID, usually user UID"
+          "description": "6-character pairing code"
         },
         "userId": {
           "type": "string",
-          "description": "User ID of the owner"
+          "description": "Google Auth UID of the remote operator"
         },
-        "userName": {
+        "userEmail": {
           "type": "string",
-          "maxLength": 100,
-          "description": "Display name of link owner"
+          "description": "Google Auth email"
         },
-        "userAvatar": {
+        "userDisplayName": {
           "type": "string",
-          "maxLength": 2000,
-          "description": "Avatar of link owner"
+          "description": "Google Auth display name"
         },
-        "url": {
+        "userPhoto": {
           "type": "string",
-          "maxLength": 2000,
-          "description": "Website or promotional URL"
+          "description": "Google Auth avatar URL"
         },
-        "title": {
+        "status": {
           "type": "string",
-          "maxLength": 100,
-          "description": "Title of the website/link"
+          "enum": ["waiting", "active", "disconnected"]
         },
-        "coinsAvailable": {
+        "createdAt": {
           "type": "number",
-          "description": "Available coins remaining for visits"
+          "description": "Timestamp ms when created"
         },
-        "visitReward": {
+        "lastActive": {
           "type": "number",
-          "description": "Coins rewarded per 15s visit (default 1)"
+          "description": "Timestamp ms when last active"
         },
-        "durationSeconds": {
-          "type": "number",
-          "description": "Duration required in seconds (default 15)"
-        },
-        "active": {
-          "type": "boolean",
-          "description": "Whether link is actively accepting visits"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "ISO timestamp string of last update"
+        "lastMessage": {
+          "type": "object",
+          "description": "Latest remote action payload"
         }
       },
-      "required": ["id", "userId", "url", "title", "active"]
-    },
-    "UserTask": {
-      "title": "UserTask",
-      "description": "Earn tasks and their completion state for a user",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Task identifier"
-        },
-        "title": {
-          "type": "string",
-          "maxLength": 120,
-          "description": "English title of task"
-        },
-        "titleBn": {
-          "type": "string",
-          "maxLength": 150,
-          "description": "Bengali title of task"
-        },
-        "reward": {
-          "type": "number",
-          "description": "Reward coins/gems amount"
-        },
-        "rewardType": {
-          "type": "string",
-          "enum": ["coins", "gems"],
-          "description": "Reward currency type"
-        },
-        "category": {
-          "type": "string",
-          "description": "Category of task"
-        },
-        "completed": {
-          "type": "boolean",
-          "description": "Whether task is completed"
-        }
-      },
-      "required": ["id", "title", "reward", "rewardType", "completed"]
-    },
-    "UserActivity": {
-      "title": "UserActivity",
-      "description": "History of transactions and reward earnings",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Activity record ID"
-        },
-        "userId": {
-          "type": "string",
-          "description": "Owner user ID"
-        },
-        "title": {
-          "type": "string",
-          "maxLength": 150,
-          "description": "Activity title"
-        },
-        "titleBn": {
-          "type": "string",
-          "maxLength": 200,
-          "description": "Bengali activity title"
-        },
-        "amount": {
-          "type": "number",
-          "description": "Amount credited or debited"
-        },
-        "type": {
-          "type": "string",
-          "enum": ["coins", "gems"],
-          "description": "Currency type"
-        },
-        "category": {
-          "type": "string",
-          "description": "Category of activity"
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Display timestamp string"
-        }
-      },
-      "required": ["id", "userId", "title", "amount", "type"]
+      "required": ["code", "userId", "status", "createdAt"]
     }
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": {
-        "$ref": "#/entities/UserProfile"
-      },
-      "description": "Stores user profile, coin balance, gems, streak and settings"
-    },
-    "/users/{userId}/tasks/{taskId}": {
-      "schema": {
-        "$ref": "#/entities/UserTask"
-      },
-      "description": "Stores user task state"
-    },
-    "/users/{userId}/activities/{activityId}": {
-      "schema": {
-        "$ref": "#/entities/UserActivity"
-      },
-      "description": "Stores user activity history"
-    },
-    "/promoted_links/{linkId}": {
-      "schema": {
-        "$ref": "#/entities/PromotedLink"
-      },
-      "description": "Stores community promoted links for 15s visit traffic exchange"
+    "/remote_sessions/{code}": {
+      "schema": "RemoteSession",
+      "description": "Active remote pairing sessions keyed by pairing code"
     }
   }
 }

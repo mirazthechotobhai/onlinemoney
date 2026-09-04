@@ -1,67 +1,59 @@
-export interface UserProfile {
-  id?: string;
-  name: string;
-  username: string;
-  bio: string;
-  email: string;
-  avatarUrl: string;
-  joinedDate: string;
-  level: number;
-  xp: number;
-  nextLevelXp: number;
-  balance: number; // Coins
-  gems: number;
-  streakDays: number;
-  lastClaimedDate: string | null;
-  language: 'bn' | 'en';
-  soundEnabled: boolean;
-  notificationsEnabled: boolean;
-  theme: 'light' | 'dark' | 'system';
-  promotedUrl?: string;
-  promotedUrlTitle?: string;
-  promotedUrlActive?: boolean;
-  totalVisitedCount?: number;
-  lifetimeVerified?: boolean;
+export type RemoteActionType =
+  | 'pointer_move'
+  | 'pointer_click'
+  | 'direction_press'
+  | 'ok_press'
+  | 'back_press'
+  | 'home_press'
+  | 'power_toggle'
+  | 'volume_change'
+  | 'text_input'
+  | 'text_backspace'
+  | 'text_clear'
+  | 'text_set'
+  | 'ping'
+  | 'pong'
+  | 'logout';
+
+export type DirectionKey = 'up' | 'down' | 'left' | 'right';
+
+export interface PointerPayload {
+  x: number; // percentage (0 to 100) or delta
+  y: number; // percentage (0 to 100) or delta
+  dx?: number;
+  dy?: number;
 }
 
-export interface PromotedLink {
+export interface RemoteMessage {
   id: string;
-  userId: string;
-  userName: string;
-  userAvatar: string;
-  url: string;
-  title: string;
-  coinsAvailable: number;
-  visitReward: number; // default 1
-  durationSeconds: number; // default 15
-  active: boolean;
-  level?: number;
-  xp?: number;
-  totalVisitedCount?: number;
-  lifetimeVerified?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface EarnTask {
-  id: string;
-  title: string;
-  titleBn: string;
-  reward: number;
-  rewardType: 'coins' | 'gems';
-  icon: string;
-  category: 'daily' | 'social' | 'quest';
-  completed: boolean;
-  progress?: number;
-  maxProgress?: number;
+  type: RemoteActionType;
+  payload?: {
+    direction?: DirectionKey;
+    pointer?: PointerPayload;
+    text?: string;
+    char?: string;
+    volumeDelta?: number;
+    timestamp: number;
+  };
+  sender: 'remote' | 'main';
 }
 
 export interface ActivityItem {
   id: string;
-  title: string;
-  titleBn: string;
-  amount: number;
-  type: 'coins' | 'gems';
-  timestamp: string;
-  category: 'earn' | 'bonus' | 'spin' | 'scratch';
+  text: string;
+  timestamp: number;
+  type: 'pointer' | 'key' | 'action' | 'system';
 }
+
+export interface RemoteSession {
+  code: string; // e.g. 6-character code
+  userId: string;
+  userEmail?: string;
+  userDisplayName?: string;
+  userPhoto?: string;
+  status: 'waiting' | 'active' | 'disconnected' | 'logged_out';
+  createdAt: number;
+  lastActive: number;
+  lastMessage?: RemoteMessage;
+}
+

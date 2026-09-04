@@ -1,12 +1,12 @@
 {
-  "projectId": "go-to-freelance",
-  "appId": "1:684909198918:web:260927e33dfcd51cf1d447",
-  "apiKey": "AIzaSyDRhwIB53-bPKeg9eVwf2bi1YdvN1upuuY",
-  "authDomain": "go-to-freelance.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-profilerewards-a7c79bcd-77d5-4553-81f8-91b84b41e967",
-  "storageBucket": "go-to-freelance.firebasestorage.app",
-  "messagingSenderId": "684909198918",
+  "projectId": "oh-no-tv",
+  "appId": "1:630662607752:web:d84957e1d5007912fd003d",
+  "apiKey": "AIzaSyA2uAqFbrMRYaZf3f-H_lWILppHWrD86_g",
+  "authDomain": "oh-no-tv.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-webremotecontrol-b6cc700c-f391-4b6f-9914-9e6ca682aac0",
+  "storageBucket": "oh-no-tv.firebasestorage.app",
+  "messagingSenderId": "630662607752",
   "measurementId": "",
-  "oAuthClientId": "684909198918-obgbk51ra2gms3jimi1k44bo3bk84veh.apps.googleusercontent.com",
+  "oAuthClientId": "630662607752-v1u1kr92tol456c7ha22sm9063ef6iqc.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }
